@@ -2,10 +2,12 @@ package com.example.library.controller;
 
 import com.example.library.entity.Book;
 import com.example.library.repository.BookRepository;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 @RestController
 public class BookController {
@@ -22,34 +24,58 @@ public class BookController {
     }
 
     @GetMapping("/books/{id}")
-    public Book show(@PathVariable Long id) {
-        return repository.findById(id).get();
+    public ResponseEntity<Book> show(@PathVariable Long id) {
+        Optional<Book> bookOptional = repository.findById(id);
+        return bookOptional.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(404).body(null));
+        // equivalent à
+        //        if (bookOptional.isPresent()) {
+        //            return ResponseEntity.ok(bookOptional.get());
+        //        } else {
+        //            return ResponseEntity.status(404).body(null);
+        //        }
     }
 
     @PostMapping("/books")
-        public Book create(@RequestBody Book book) {
-        return repository.save(book);
+    public ResponseEntity<Book> create(@RequestBody Book book) {
+        Book createdBook = repository.save(book);
+        return  ResponseEntity.ok().body(createdBook);
     }
 
     @PostMapping("/books/search")
-    public List<Book> search(@RequestBody Map<String, String> body){
+    public ResponseEntity<?> search(@RequestBody Map<String, String> body){
         String searchTerm = body.get("text");
-        return repository.findByTitleContainingOrDescriptionContaining(searchTerm, searchTerm);
+        List<Book> result = repository.findByTitleContainingOrDescriptionContaining(searchTerm, searchTerm);
+        if (result.isEmpty()) {
+            return ResponseEntity.status(404).body("Aucun livre trouvé");
+        } else {
+            return ResponseEntity.ok().body(result);
+        }
     }
 
     @PutMapping("/books/{id}")
     public Book update(@RequestBody Book book, @PathVariable Long id) {
-        Book updatedBook = repository.findById(id).get();
-        updatedBook.setTitle(book.getTitle());
-        updatedBook.setAuthor(book.getAuthor());
-        updatedBook.setDescription(book.getDescription());
-        return repository.save(updatedBook);
+        Book bookToUpdate = repository.findById(id).get();
+        if (book.getTitle() != null) {
+            bookToUpdate.setTitle(book.getTitle());
+        }
+        if (book.getAuthor() != null) {
+            bookToUpdate.setAuthor(book.getAuthor());
+        }
+        if (book.getDescription() != null) {
+            bookToUpdate.setDescription(book.getDescription());
+        }
+        return repository.save(bookToUpdate);
     }
 
     @DeleteMapping("books/{id}")
-    public boolean delete(@PathVariable Long id){
-        repository.deleteById(id);
-        return true;
+    public ResponseEntity<String> delete(@PathVariable Long id) {
+        Optional<Book> bookOptional = repository.findById(id);
+                if (bookOptional.isPresent()) {
+                    repository.deleteById(id);
+                    return ResponseEntity.ok().body("Le livre a été supprimé avec succès.");
+                } else {
+                    return ResponseEntity.status(404).body("Aucun livre trouvé");
+                }
     }
 
 
